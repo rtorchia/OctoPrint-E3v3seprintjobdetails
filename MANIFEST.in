@@ -1,0 +1,4 @@
+include README.md
+recursive-include octoprint_E3V3SEPrintJobDetails/templates *
+recursive-include octoprint_E3V3SEPrintJobDetails/translations *
+recursive-include octoprint_E3V3SEPrintJobDetails/static *
