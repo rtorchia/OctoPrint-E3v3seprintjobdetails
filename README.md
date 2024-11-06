@@ -19,8 +19,22 @@ or manually using this URL:
 
     https://github.com/navaismo/OctoPrint-E3v3seprintjobdetails/archive/main.zip
 
+## Dependiencies
 
+To work correctly this plugin depends on the below 3rd party plugins:
+
+- Dashboard.
+- GcodeViewer.
+- PrintTimeGenius.
+
+<br>
+
+
+To see correctly the layer progress you must wait till GcodeViewer analyse the file, after that you can start the print.
+PrintTime Genius Provides the Estimated Print Time.
+
+Usualy I load the file and when I see the screen in the LCD I check if gcodeviewer finished and then I press print to start the job.
 
 **TODO:** 
- ** Fix issue with current Layers.
- ** Support Files from Other slicer rathen than just OrcaSlicer.
+
+ * Support Files from Other slicer rathen than just OrcaSlicer.
