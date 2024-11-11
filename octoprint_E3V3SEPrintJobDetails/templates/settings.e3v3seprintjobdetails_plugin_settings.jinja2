@@ -1,0 +1,95 @@
+<!-- Agrega en el encabezado de tu HTML, si no lo tienes ya -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<style>
+.switch-container {
+  display: flex;
+  align-items: center;
+}
+
+.switch-container label {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.hint-icon {
+  margin-left: 8px;
+  font-size: 1.2em;
+  color: #0e304f;
+  cursor: pointer;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #0e304f;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #0e304f;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+</style>
+
+<div class="form-group switch-container">
+    <label for="enable_o9000_commands" class="control-label">View M117 Commands</label>
+    <label class="switch">
+        <input type="checkbox" id="enable_o9000_commands" data-bind="checked: settings.plugins.E3V3SEPrintJobDetails.enable_o9000_commands" />
+        <span class="slider round"></span>
+    </label>
+    <label for="enable_o9000_commands" class="control-label">Enable O9000 Commands</label>
+    <!-- Icono de hint -->
+    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" title="If the slider is Enable, Ocotprint will send O9000 commands to render the Job details in the LCD, otherwise any other plugin using M117 command will be shown in the LCD screen. Use this to avoid overlapping of screens and messages."></i>
+</div>
+
+<!-- Inicializar el tooltip de Bootstrap -->
+<script>
+$(document).ready(function(){
+  $('[data-toggle="tooltip"]').tooltip(); 
+});
+</script>

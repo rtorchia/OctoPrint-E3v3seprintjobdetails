@@ -11,10 +11,10 @@ plugin_package = "octoprint_E3V3SEPrintJobDetails"
 
 # The plugin's human readable name. Can be overwritten within OctoPrint's internal data via __plugin_name__ in the
 # plugin module
-plugin_name = "OctoPrint-E3v3seprintjobdetails"
+plugin_name = "OctoPrint-E3V3SEPrintJobDetails"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.0.7"
+plugin_version = "0.0.8"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module

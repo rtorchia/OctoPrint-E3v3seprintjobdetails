@@ -35,6 +35,16 @@ PrintTime Genius Provides the Estimated Print Time.
 
 Usualy I load the file and when I see the screen in the LCD I check if gcodeviewer finished and then I press print to start the job.
 
+## Selection between O9000 and M117 commands.
+Since some users has already plugins that send M117 commands to the printer, I've updated the Octoprint plugin to select which messages to reflect in the LCD and avoid overlapping in the screen.
+If you want to see the DisplayLayerProgress messages or any other plugin that already sent info to the LCD just keep the seecto disabled.
+If you want to see the Jobs details in the LCD enable the selector to send only the O9000 commands from Octoprint.
+
+
+
+![Menu Interface](https://i.imgur.com/hbLhtkm.png)
+
+
 
 ## Fine tunning for canceling and pausing/resuming jobs
 To have a better controel of messages and printer moves you may want to add this block codes to the GCODE SCRIPTS section of Octoprint settings:
@@ -122,4 +132,4 @@ G1 X{{ pause_position.x }} Y{{ pause_position.y }} Z{{ pause_position.z }} F4500
 
 **TODO:** 
 
- * Support Files from Other slicer rathen than just OrcaSlicer.
+ * Support Files from Other slicer rather than just OrcaSlicer.

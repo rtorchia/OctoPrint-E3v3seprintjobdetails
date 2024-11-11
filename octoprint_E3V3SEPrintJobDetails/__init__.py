@@ -7,12 +7,23 @@ import octoprint.plugin
 class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                                       octoprint.plugin.EventHandlerPlugin,
                                       octoprint.plugin.SettingsPlugin,
+                                      octoprint.plugin.TemplatePlugin
                                       ):
 
-        def __init__(self):
+        def __init__(self): # init global vars
             self.total_layers = 0
             self.wasLoaded = False
             self.current_layer = 0
+            
+        def get_settings_defaults(self):
+            return dict(
+                enable_o9000_commands=False  # Default value for the slider.
+            )    
+            
+        def get_template_configs(self): # get the values
+            return [
+                dict(type="settings", template="settings.e3v3seprintjobdetails_plugin_settings.jinja2", name="E3V3SE Print Job Details", custom_bindings=False)
+            ]    
 
         def on_after_startup(self):
             self._logger.info(">>>>>> E3v3seprintjobdetailsPlugin Loaded <<<<<<")
@@ -71,6 +82,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
             self._logger.info(f"Print Time: {self.seconds_to_hms(print_time)}")
             self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
+            
             # Send the print Info using custom O Command O9000 to the printer
             self.send_O9000_cmd(f"SFN|{file_name}")
             self.send_O9000_cmd(f"STL|{self.total_layers}")
@@ -84,13 +96,13 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Info")
             print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
             print_time_left = self._printer.get_current_data().get("progress", {}).get("printTimeLeft", "00:00:00")
-            current_layer = self._printer.get_current_data().get("currentZ", "0")
+            #current_layer = self.layer_number
 
             if print_time_left is None or print_time_left == 0:
                 print_time_left = print_time
 
-            if current_layer is None or current_layer == 0:
-                current_layer = 0
+            #if current_layer is None or current_layer == 0:
+            #    current_layer = 0
 
             # Progress is kinda shitty, but its what it is
             progress = (((print_time - print_time_left) / (print_time)) * 100)
@@ -101,9 +113,11 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
             #self._logger.info(f"current layer: {current_layer}")
             self._logger.info(f"progress: {progress}")
+            
             # Send the print Info using custom O Command O9000 to the printer
             self.send_O9000_cmd(f"UET|{self.seconds_to_hms(print_time_left)}")
             self.send_O9000_cmd(f"UPP|{progress}")
+
 
         def find_total_layers(self, file_path):
             # Find the Total Layer string in GCODE
@@ -129,8 +143,10 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
         def send_O9000_cmd(self, value):  # Send the comand to the printer
             # self._logger.info(f"Trying to send command: O9000 {value}")
-            self._printer.commands(f"O9000 {value}")
+            if self._settings.get(["enable_o9000_commands"]):
+                self._printer.commands(f"O9000 {value}")
 
+        #catch and parse commands
         def gcode_queuing_handler(self, comm, phase, cmd, cmd_type, gcode, *args, **kwargs):
             #self._logger.info(f"Intercepted G-code: {cmd}")
             # Catch Commands to search the below...
@@ -142,10 +158,23 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 else:
                     self.layer_number += 1  # If no number inc manually
 
-                self._logger.info(f"====++++====++++==== Layer Number: {self.layer_number}")
+                # send the layer number
+                self._logger.info(f"====++++====++++==== Layer Number: {self.layer_number}")    
                 self.send_O9000_cmd(f"UCL|{str(self.layer_number).rjust(7, ' ')}")
             
-            # Just return the cmd
+            # Ignoring any other M117 cmd if enabled 
+            elif cmd.startswith("M117"):
+                
+                # We want to write the cancelled MSG
+                if cmd == "M117 Print is cancelled":
+                    return [cmd]
+                
+                
+                if self._settings.get(["enable_o9000_commands"]):
+                    self._logger.info(f"Ignoring M117 Command since this plugin has precedence to write to the LCD: {cmd}")
+                    return []  # 
+    
+            # Return the cmd
             return [cmd]
 
         def get_update_information(self):
@@ -167,7 +196,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             }
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.7"
+__plugin_version__ = "0.0.8"
       
 def __plugin_load__():
     global __plugin_implementation__
