@@ -1,6 +1,6 @@
 # OctoPrint-E3v3seprintjobdetails
 
-This Plugin enable the communication with [the modified firmware of the Ender 3V3SE](https://github.com/navaismo/Ender-3V3-SE/tree/OctoPrintDetailsPageinLCD) and Octoprint to Render in the Printer's LCD the current print JOB.
+This Plugin enable the communication with [the modified firmware of the Ender 3V3SE](https://github.com/navaismo/Ender-3V3-SE/tree/main) and Octoprint to Render in the Printer's LCD the current print JOB.
 For this was created a custom Command O9000 to send and update the job details.
 
 <br />
