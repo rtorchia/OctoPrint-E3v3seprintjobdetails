@@ -14,6 +14,9 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.total_layers = 0
             self.wasLoaded = False
             self.current_layer = 0
+            self.print_time_known = False
+            self.total_layers_known = False
+            self.prev_print_time_left = None
             
         def get_settings_defaults(self):
             return dict(
@@ -32,36 +35,37 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             #self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Event detected: {event}")  # Verify Events Better to comment this
 
             if event == "PrintCancelled":  # clean variables after cancellation
-                self.wasLoaded = False
-                self.total_layers = 0
+                self.cleanup()
 
             if event == "FileSelected":  # If file selected gather all data
                 self.wasLoaded = True
                 time.sleep(0.5)
                 self.get_print_info(payload)
-            if event == "PrintStarted":  # If Prnt Started, check if was loaded or not to gather the data or just update the data
+            if ((event == "PrintStarted") or (event == "MetadataAnalysisFinished")):  # If Prnt Started, check if was loaded or not to gather the data or just update the data
                 time.sleep(0.5)
                 if not self.wasLoaded:
                     self._logger.info("Not Loaded getting all info")
                     self.get_print_info(payload)
                 else:
-                    self.update_print_info()
+                    self.update_print_info(payload)
             if event == "ZChange":  # Update the info every Z change
-                self.update_print_info()
+                self.update_print_info(payload)
 
             if event == "PrintDone":  # When Done change the screen and show the values
                 self.send_O9000_cmd(f"UET|00:00:00")
                 self.send_O9000_cmd(f"UCL|{self.total_layers}")
                 self.send_O9000_cmd(f"UPP|100")
                 self.send_O9000_cmd(f"PF|")
-                self.wasLoaded = False
-                self.total_layers = 0
+                self.cleanup()
 
         def get_print_info(self, payload):  # Get the print info
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Info")
             time.sleep(0.3)
             file_path = self._file_manager.path_on_disk("local", payload.get("path"))
             self._logger.info(f"File selected: {file_path}")
-            self.total_layers = self.find_total_layers(file_path)
+            if (not self.total_layers_known):
+                self.total_layers = self.find_total_layers(file_path)
+                self.total_layers_known = True
 
             if self.total_layers:
                 self._logger.info(f"Total layers found: {self.total_layers}")
@@ -70,6 +74,11 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
             file_name = self._printer.get_current_data().get("job", {}).get("file", {}).get("name", "DefaultName")
             print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
+            if (print_time != None):
+                self.print_time_known = True
+            else:
+                self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Print time still unknown")
+                return
             print_time_left = 0
             current_layer = 0
             progress = 0
@@ -92,9 +101,15 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.send_O9000_cmd(f"SPP|{progress}")
             self.send_O9000_cmd(f"SC|")
 
-        def update_print_info(self):  # Get info to Update
+        def update_print_info(self, payload):  # Get info to Update
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Info")
             print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
+            if (not self.print_time_known and (print_time != None)):
+                # we know the print time now, so update it on the screen
+                self.get_print_info(payload)
+            elif (print_time == None):
+                return
+
             print_time_left = self._printer.get_current_data().get("progress", {}).get("printTimeLeft", "00:00:00")
             #current_layer = self.layer_number
 
@@ -104,19 +119,22 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             #if current_layer is None or current_layer == 0:
             #    current_layer = 0
 
-            # Progress is kinda shitty, but its what it is
-            progress = (((print_time - print_time_left) / (print_time)) * 100)
-
-            self._logger.info(f"Print Time: {print_time}")
-            self._logger.info(f"Print Time: {self.seconds_to_hms(print_time)}")
-            self._logger.info(f"Print Time Left: {print_time_left}")
-            self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
-            #self._logger.info(f"current layer: {current_layer}")
-            self._logger.info(f"progress: {progress}")
-            
-            # Send the print Info using custom O Command O9000 to the printer
-            self.send_O9000_cmd(f"UET|{self.seconds_to_hms(print_time_left)}")
-            self.send_O9000_cmd(f"UPP|{progress}")
+            #only update if the print_time_left and progress changed
+            if (self.prev_print_time_left != print_time_left):
+                # Progress is kinda shitty, but its what it is
+                progress = (((print_time - print_time_left) / (print_time)) * 100)
+    
+                self._logger.info(f"Print Time: {print_time}")
+                self._logger.info(f"Print Time: {self.seconds_to_hms(print_time)}")
+                self._logger.info(f"Print Time Left: {print_time_left}")
+                self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
+                #self._logger.info(f"current layer: {current_layer}")
+                self._logger.info(f"progress: {progress}")
+                
+                # Send the print Info using custom O Command O9000 to the printer
+                self.prev_print_time_left = print_time_left
+                self.send_O9000_cmd(f"UET|{self.seconds_to_hms(print_time_left)}")
+                self.send_O9000_cmd(f"UPP|{progress}")
 
 
         def find_total_layers(self, file_path):
@@ -135,6 +153,8 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
         # Classic function to change Seconds in to hh:mm:ss
         def seconds_to_hms(self, seconds_float):
+            if not isinstance(seconds_float, (int, float)):
+                seconds_float = 0
             seconds = int(round(seconds_float))
             hours = seconds // 3600
             minutes = (seconds % 3600) // 60
@@ -194,6 +214,14 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     "pip": "https://github.com/navaismo/OctoPrint-E3v3seprintjobdetails/archive/{target_version}.zip",
                 }
             }
+        
+        def cleanup(self):
+            self.print_time_known = False
+            self.wasLoaded = False
+            self.total_layers = 0
+            self.total_layers_known = False
+            self.prev_print_time_left = None
+
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
 __plugin_version__ = "0.0.8"
