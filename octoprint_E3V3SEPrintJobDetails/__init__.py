@@ -12,11 +12,18 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
         def __init__(self): # init global vars
             self.total_layers = 0
-            self.wasLoaded = False
+            self.was_loaded = False
             self.current_layer = 0
             self.print_time_known = False
             self.total_layers_known = False
             self.prev_print_time_left = None
+            self.await_start = False
+            self.await_metadata = False
+            self.printing_job = False
+            self.counter = 0
+            self.start_time = None
+            self.elapsed_time = None
+            
             
         def get_settings_defaults(self):
             return dict(
@@ -32,35 +39,64 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(">>>>>> E3v3seprintjobdetailsPlugin Loaded <<<<<<")
 
         def on_event(self, event, payload):
-            #self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Event detected: {event}")  # Verify Events Better to comment this
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Event detected: {event}")  # Verify Events, Better to comment this
 
             if event == "PrintCancelled":  # clean variables after cancellation
                 self.cleanup()
 
             if event == "FileSelected":  # If file selected gather all data
-                self.wasLoaded = True
+                self.was_loaded = True
                 time.sleep(0.5)
-                self.get_print_info(payload)
-            if ((event == "PrintStarted") or (event == "MetadataAnalysisFinished")):  # If Prnt Started, check if was loaded or not to gather the data or just update the data
-                time.sleep(0.5)
-                if not self.wasLoaded:
-                    self._logger.info("Not Loaded getting all info")
+                self.await_start = True  # Lets Wait to complete
+                self._logger.info(">>>>>> Loaded File, Waiting for PrintStarted")
+
+
+            if event == "PrintStarted":
+                self.start_time = time.time() # save the mark of the start
+                if self.await_start and self.was_loaded:  # Are we waiting...
+                    self._logger.info(f">>>+++ PrintStarted with Loaded File waiting for metadata")
+                    self.await_metadata = True
+                    time.sleep(.5)
                     self.get_print_info(payload)
-                else:
-                    self.update_print_info(payload)
+                    
+                if not self.was_loaded: # Direct print from GUI?
+                    self._logger.info(">>>+++ PrintedStarted but File Not Loaded, wait for metadata")
+                    self.await_metadata = True
+
+            if event == "MetadataAnalysisFinished": 
+                if self.await_metadata: # Metadata finished and we have a flag from the flow of Load -> Print -> Read -> Start
+                    self._logger.info(">>>+++ PrintedStarted and Metadata Finish, get print Info")
+                    time.sleep(.5)
+                    self.printing_job = True
+                    self.get_print_info(payload)
+
+                    
             if event == "ZChange":  # Update the info every Z change
-                self.update_print_info(payload)
+                # If the flow was a direct print from GUI: Print-> Start, and the file was already analized we will not have metadata step
+                # So this is our insurance for a direct print of old file, a second print of existing analized file we will want to update all.
+                # Check if the printer is printing and the flag is false to increase the counter if the counter > 3 we start updating 
+                if self._printer.is_printing() and not self.printing_job:
+                    self.counter += 1
+                    if self.counter > 3:
+                        self.printing_job = True
+
+                    
+                if self.printing_job: # have a flag from the flow of Load -> Print -> Read -> Start so now we can Update 
+                    self.update_print_info(payload)
+
 
             if event == "PrintDone":  # When Done change the screen and show the values
-                self.send_O9000_cmd(f"UET|00:00:00")
+                e_time = self.get_elapsed_time()
+                self.send_O9000_cmd(f"UET|{e_time}")
                 self.send_O9000_cmd(f"UCL|{self.total_layers}")
                 self.send_O9000_cmd(f"UPP|100")
                 self.send_O9000_cmd(f"PF|")
                 self.cleanup()
 
+
         def get_print_info(self, payload):  # Get the print info
-            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Info")
-            time.sleep(0.3)
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Getting Print Details Info 1st time.")
+            time.sleep(0.9)
             file_path = self._file_manager.path_on_disk("local", payload.get("path"))
             self._logger.info(f"File selected: {file_path}")
             if (not self.total_layers_known):
@@ -102,7 +138,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.send_O9000_cmd(f"SC|")
 
         def update_print_info(self, payload):  # Get info to Update
-            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Info")
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Print Details Info")
             print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
             if (not self.print_time_known and (print_time != None)):
                 # we know the print time now, so update it on the screen
@@ -143,7 +179,11 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 with open(file_path, "r") as gcode_file:
                     for line in gcode_file:
                         if "; total layer number:" in line:
-                            # Extraer el número de capas de la línea
+                            # Extract total layers if Orca Generated
+                            total_layers = line.strip().split(":")[-1].strip()
+                            return total_layers
+                        elif ";LAYER_COUNT:" in line:
+                            # Extract total layers if Cura Generated
                             total_layers = line.strip().split(":")[-1].strip()
                             return total_layers
             except Exception as e:
@@ -197,6 +237,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             # Return the cmd
             return [cmd]
 
+
         def get_update_information(self):
             # Define the configuration for your plugin to use with the Software Update
             # Plugin here. See https://docs.octoprint.org/en/master/bundledplugins/softwareupdate.html
@@ -216,15 +257,32 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             }
         
         def cleanup(self):
-            self.print_time_known = False
-            self.wasLoaded = False
             self.total_layers = 0
+            self.was_loaded = False
+            self.current_layer = 0
+            self.print_time_known = False
             self.total_layers_known = False
             self.prev_print_time_left = None
+            self.await_start = False
+            self.await_metadata = False
+            self.printing_job = False
+            self.counter = 0
+            self.start_time = None
+            self.elapsed_time = None
+
+        def get_elapsed_time(self):
+            if self.start_time is not None:
+                self.elapsed_time = time.time() - self.start_time  # Get the elapsed time in seconds
+                human_time = self.seconds_to_hms(self.elapsed_time)
+                self._logger.info(f"Print ended at {time.ctime()} with elapsed time: {human_time}")
+                self.start_time = None  # reset
+                return human_time
+            else:
+                self._logger.warning("Print ended but no start time was recorded.")    
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.9"
+__plugin_version__ = "0.0.1.0"
       
 def __plugin_load__():
     global __plugin_implementation__
