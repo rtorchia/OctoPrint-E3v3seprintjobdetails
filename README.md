@@ -1,7 +1,10 @@
 # OctoPrint-E3v3seprintjobdetails
 
 This Plugin enable the communication with [the modified firmware of the Ender 3V3SE](https://github.com/navaismo/Ender-3V3-SE/tree/main) and Octoprint to Render in the Printer's LCD the current print JOB.
-For this was created a custom Command O9000 to send and update the job details.
+
+- For this was created a custom Command O9000 to send and update the job details.
+- Added support for CURA and Orca Files.
+- Added support for Direct print from Orca or Cura Slicers.
 
 <br />
 
@@ -30,19 +33,14 @@ To work correctly this plugin depends on the below 3rd party plugins:
 <br>
 
 
-To see correctly the layer progress you must wait till GcodeViewer analyse the file, after that you can start the print.
-PrintTime Genius Provides the Estimated Print Time.
-
-Usualy I load the file and when I see the screen in the LCD I check if gcodeviewer finished and then I press print to start the job.
-
 ## Selection between O9000 and M117 commands.
 Since some users has already plugins that send M117 commands to the printer, I've updated the Octoprint plugin to select which messages to reflect in the LCD and avoid overlapping in the screen.
 If you want to see the DisplayLayerProgress messages or any other plugin that already sent info to the LCD just keep the seecto disabled.
 If you want to see the Jobs details in the LCD enable the selector to send only the O9000 commands from Octoprint.
 
+## Also you can choose between Time or Layer Progress to see in the LCD.
 
-
-![Menu Interface](https://i.imgur.com/hbLhtkm.png)
+![Menu Interface](https://i.imgur.com/TyJh7Za.png)
 
 
 
@@ -130,6 +128,13 @@ G1 X{{ pause_position.x }} Y{{ pause_position.y }} Z{{ pause_position.z }} F4500
 ```
 
 
-**TODO:** 
+## Issues?
+If you have issues open an Issue or a discussion. Sending the following information:
 
- * Support Files from Other slicer rather than just OrcaSlicer.
+- Version of Plugin and Firmware.
+- Describe what happened.
+- How the Gcode file was loaded.
+- Was from GUI or Slicer.
+- If your Gcode is not parsed correctly, attach your gcode file, currently only Orca and Cura files has been tested.
+- Add an Image.
+
