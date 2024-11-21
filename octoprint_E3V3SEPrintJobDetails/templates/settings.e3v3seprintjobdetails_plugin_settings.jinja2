@@ -22,8 +22,8 @@
 .switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px;
+  width: 50px;
+  height: 24px;
 }
 
 .switch input {
@@ -46,8 +46,8 @@
 .slider:before {
   position: absolute;
   content: "";
-  height: 26px;
-  width: 26px;
+  height: 17px;
+  width: 17px;
   left: 4px;
   bottom: 4px;
   background-color: white;
@@ -74,6 +74,12 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 </style>
+<br>
+<hr>
+<br>
+<div>
+    <p>Select if you want to see M117 commands in LCD or Full job Details(O9000 commands): </p>
+</div>
 
 <div class="form-group switch-container">
     <label for="enable_o9000_commands" class="control-label">View M117 Commands</label>
@@ -83,7 +89,23 @@ input:checked + .slider:before {
     </label>
     <label for="enable_o9000_commands" class="control-label">Enable O9000 Commands</label>
     <!-- Icono de hint -->
-    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" title="If the slider is Enable, Ocotprint will send O9000 commands to render the Job details in the LCD, otherwise any other plugin using M117 command will be shown in the LCD screen. Use this to avoid overlapping of screens and messages."></i>
+    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, Ocotprint will send O9000 commands to render the Job details in the LCD, otherwise any other plugin using M117 command will be shown in the LCD screen. Use this to avoid overlapping of screens and messages."></i>
+</div>
+
+<hr>
+<br>
+<div>
+    <p>Select the type of the Progress that you want to see Based on: </p>
+</div>
+<div class="form-group switch-container">
+<label for="based_progress" class="control-label">Time Progress</label>
+    <label class="switch">
+        <input type="checkbox" id="based_progress" data-bind="checked: settings.plugins.E3V3SEPrintJobDetails.based_progress" />
+        <span class="slider round"></span>
+    </label>
+    <label for="based_progress" class="control-label">Layer Progress</label>
+    <!-- Icono de hint -->
+    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, The plugin will render the progress based on the Layer progress, if is disabled(default) will show the progress based on the Time reported by the system. It only affects LCD screen"></i>
 </div>
 
 <!-- Inicializar el tooltip de Bootstrap -->
