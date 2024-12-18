@@ -41,6 +41,10 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
         def on_event(self, event, payload):
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Event detected: {event}")  # Verify Events, Better to comment this
+            
+            
+            if event == "Connected":
+                self.send_O9000_cmd("OCON|")
 
             if event == "PrintCancelled":  # clean variables after cancellation
                 self.cleanup()
@@ -332,7 +336,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.1"
+__plugin_version__ = "0.0.1.2"
       
 def __plugin_load__():
     global __plugin_implementation__
