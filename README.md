@@ -38,7 +38,7 @@ Since some users has already plugins that send M117 commands to the printer, I'v
 If you want to see the DisplayLayerProgress messages or any other plugin that already sent info to the LCD just keep the seecto disabled.
 If you want to see the Jobs details in the LCD enable the selector to send only the O9000 commands from Octoprint.
 
-## Also you can choose between Time or Layer Progress to see in the LCD.
+## Also you can choose between Time based Progress, Layer based Progress or M73 command Progress to see in the LCD.
 
 ![Menu Interface](https://i.imgur.com/U9RBDKd.png)
 
