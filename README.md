@@ -40,7 +40,7 @@ If you want to see the Jobs details in the LCD enable the selector to send only 
 
 ## Also you can choose between Time or Layer Progress to see in the LCD.
 
-![Menu Interface](https://i.imgur.com/TyJh7Za.png)
+![Menu Interface](https://i.imgur.com/U9RBDKd.png)
 
 
 
