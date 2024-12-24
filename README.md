@@ -74,7 +74,7 @@ M140 S0 ; Set Bed to 0
 M106 S0
 
 ; send message to printer.
-M117 Print is cancelled
+M117 Print was cancelled
 ```
 
 ### After print Job is Paused 

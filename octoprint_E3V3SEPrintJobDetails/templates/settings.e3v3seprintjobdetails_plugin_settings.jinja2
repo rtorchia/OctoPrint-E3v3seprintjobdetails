@@ -1,117 +1,175 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
 <style>
-.switch-container {
-  display: flex;
-  align-items: center;
-}
+  /* General container styling */
+  .settings-container {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #36393f;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
 
-.switch-container label {
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-right: 10px;
-}
+  .settings-header {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 15px;
+  }
 
-.hint-icon {
-  margin-left: 8px;
-  font-size: 1.2em;
-  color: #0e304f;
-  cursor: pointer;
-}
+  .setting-group {
+    margin-bottom: 20px;
+  }
 
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-}
+  .setting-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: white;
+  }
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+  .switch-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
 
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-}
+  .switch-container .control-label {
+    font-size: 1em;
+    margin-right: 10px;
+    color: white;
+  }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 17px;
-  width: 17px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-}
+  .hint-icon {
+    margin-left: 8px;
+    font-size: 1.2em;
+    color: #0e304f;
+    cursor: pointer;
+  }
 
-input:checked + .slider {
-  background-color: #0e304f;
-}
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #0e304f;
-}
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
 
-input:checked + .slider:before {
-  transform: translateX(26px);
-}
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+  }
 
-.slider.round {
-  border-radius: 34px;
-}
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 17px;
+    width: 17px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+  }
 
-.slider.round:before {
-  border-radius: 50%;
-}
+  input:checked + .slider {
+    background-color: #0e304f;
+  }
+
+  input:focus + .slider {
+    box-shadow: 0 0 1px #0e304f;
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+
+  .slider.round {
+    border-radius: 34px;
+  }
+
+  .slider.round:before {
+    border-radius: 50%;
+  }
+
+  /* Additional fix to align M73 slider */
+  .switch-container.m73-slider {
+    justify-content: flex-start; /* Align M73 slider to the left */
+  }
+
+  .divider {
+    border-top: 1px solid #555;
+    margin: 20px 0;
+  }
 </style>
-<br>
-<hr>
-<br>
-<div>
-    <p>Select if you want to see M117 commands in LCD or Full job Details(O9000 commands): </p>
-</div>
 
-<div class="form-group switch-container">
-    <label for="enable_o9000_commands" class="control-label">View M117 Commands</label>
-    <label class="switch">
+<div class="settings-container">
+  <!-- M117/O9000 Commands -->
+  <div class="setting-group">
+    <div class="setting-title">Command Display Options</div>
+    <p>Select whether to display M117 commands or full job details (O9000 commands) on the LCD:</p>
+    <div class="switch-container m73-slider">
+      <label class="control-label">View M117 Commands</label>
+      <label class="switch">
         <input type="checkbox" id="enable_o9000_commands" data-bind="checked: settings.plugins.E3V3SEPrintJobDetails.enable_o9000_commands" />
         <span class="slider round"></span>
-    </label>
-    <label for="enable_o9000_commands" class="control-label">Enable O9000 Commands</label>
-    <!-- Icono de hint -->
-    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, Ocotprint will send O9000 commands to render the Job details in the LCD, otherwise any other plugin using M117 command will be shown in the LCD screen. Use this to avoid overlapping of screens and messages."></i>
-</div>
+      </label>
+      <label class="control-label">Enable O9000 Commands</label>
+      <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, Ocotprint will send O9000 commands to render the Job details in the LCD, otherwise any other plugin using M117 command will be shown in the LCD screen. Use this to avoid overlapping of screens and messages."></i>
+    </div>
+  </div>
 
-<hr>
-<br>
-<div>
-    <p>Select the type of the Progress that you want to see Based on: </p>
-</div>
-<div class="form-group switch-container">
-<label for="based_progress" class="control-label">Time Progress</label>
-    <label class="switch">
+  <div class="divider"></div>
+
+  <!-- Progress Display -->
+  <div class="setting-group">
+    <div class="setting-title">Progress Display Type</div>
+    <p>Choose the type of progress to display on the LCD:</p>
+    <div class="switch-container m73-slider">
+      <label class="control-label">Time Progress</label>
+      <label class="switch">
         <input type="checkbox" id="based_progress" data-bind="checked: settings.plugins.E3V3SEPrintJobDetails.based_progress" />
         <span class="slider round"></span>
-    </label>
-    <label for="based_progress" class="control-label">Layer Progress</label>
-    <!-- Icono de hint -->
-    <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, The plugin will render the progress based on the Layer progress, if is disabled(default) will show the progress based on the Time reported by the system. It only affects LCD screen"></i>
-</div>
+      </label>
+      <label class="control-label">Layer Progress</label>
+      <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If the slider is Enabled, The plugin will render the progress based on the Layer progress, if is disabled(default) will show the progress based on the Time reported by the system. It only affects LCD screen"></i>
+    </div>
+  </div>
 
-<!-- Inicializar el tooltip de Bootstrap -->
+  <div class="divider"></div>
+
+  <!-- M73 Progress -->
+  <div class="setting-group">
+    <div class="setting-title">M73 Progress</div>
+    <p>Enable M73 progress reporting on the LCD (MUST disable layer progress option):</p>
+    <div class="switch-container m73-slider">
+      <label class="control-label">M73 Progress</label>
+      <label class="switch">
+        <input type="checkbox" id="m73_progress" data-bind="checked: settings.plugins.E3V3SEPrintJobDetails.m73_progress" />
+        <span class="slider round"></span>
+      </label>
+      <i class="fas fa-info-circle hint-icon" data-toggle="tooltip" data-placement="right" title="If enabled, progress will be based on M73 G-code commands. This disables time or layer-based progress. Your slicer must be configured to report M73 commands otherwise there will be no update in the LCD screen"></i>
+    </div>
+  </div>
+</div>
 <script src="{{ url_for("static", filename="js/lib/jquery/jquery.min.js") }}"></script>
 <script>
-$(document).ready(function(){
-  $('[data-toggle="tooltip"]').tooltip(); 
-});
+  $(document).ready(function () {
+      $('[data-toggle="tooltip"]').tooltip();
+  });
 </script>

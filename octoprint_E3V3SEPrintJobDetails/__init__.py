@@ -23,12 +23,14 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.start_time = None
             self.elapsed_time = None
             self.layer_number = 0
+            self.send_m73 = False
             
             
         def get_settings_defaults(self):
             return dict(
                 enable_o9000_commands=False,  # Default value for the slider.
-                based_progress=False
+                based_progress=False,
+                m73_progress=False
             )    
             
         def get_template_configs(self): # get the values
@@ -38,7 +40,16 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
         def on_after_startup(self):
             self._logger.info(">>>>>> E3v3seprintjobdetailsPlugin Loaded <<<<<<")
+            self.slicer_values()
+        
+        def slicer_values(self):
+            self._logger.info(f"Plugin Version: {self._plugin_version}")
+            self._logger.info(f"Sliders values:")
+            self._logger.info(f"Enable O9000 Commands: {self._settings.get(['enable_o9000_commands'])}")
+            self._logger.info(f"Progress based on Layer: {self._settings.get(['based_progress'])}")
+            self._logger.info(f"Progress based on M73 Command: {self._settings.get(['m73_progress'])}")
 
+           
         def on_event(self, event, payload):
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Event detected: {event}")  # Verify Events, Better to comment this
             
@@ -57,12 +68,17 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
             if event == "PrintStarted":
+                self.slicer_values()
                 self.start_time = time.time() # save the mark of the start
                 if self.await_start and self.was_loaded:  # Are we waiting...
                     self._logger.info(f">>>+++ PrintStarted with Loaded File waiting for metadata")
                     self.await_metadata = True
                     time.sleep(.5)
                     self.get_print_info(payload)
+                    
+                    if self._settings.get(["m73_progress"]):
+                        self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
+                        self.send_m73 = True
                     
                 if not self.was_loaded: # Direct print from GUI?
                     self._logger.info(">>>+++ PrintedStarted but File Not Loaded, wait for metadata")
@@ -84,6 +100,10 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     self.counter += 1
                     if self.counter > 3:
                         self._logger.info(">>>!!!! Printing without all the Data, our safe counter reached >3")
+                        if self._settings.get(["m73_progress"]):
+                            self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
+                            self.send_m73 = True
+                        
                         #Doing the best to get the filepath at runtime
                         current_job = self._printer.get_current_job()
                         file_path = None
@@ -207,6 +227,9 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 if self._settings.get(["based_progress"]):
                     # Progress is based on the layer
                     progress = (int(self.layer_number) * 100 ) / int(self.total_layers)
+                elif self._settings.get(["m73_progress"]):
+                    self._logger.info(f"Progress based on M73 command") 
+                    return                  
                 else:
                     # Progress is kinda shitty when based on time, but its what it is
                     progress = (((print_time - print_time_left) / (print_time)) * 100)
@@ -262,6 +285,24 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
         #catch and parse commands
         def gcode_queuing_handler(self, comm, phase, cmd, cmd_type, gcode, *args, **kwargs):
             #self._logger.info(f"Intercepted G-code: {cmd}")
+            
+            # Intercept M73 commands to extract progress and time remaining
+            if cmd.startswith("M73") and self._settings.get(["m73_progress"]) and self.send_m73:
+                m73_match = re.match(r"M73 P(\d+)(?: R(\d+))?", cmd)
+                if m73_match:
+                    progress = int(m73_match.group(1))  # Extract progress (P)
+                    remaining_minutes = int(m73_match.group(2)) if m73_match.group(2) else 0  # Extract remaining minutes (R), default to 0 if missing
+
+                    # Convert remaining minutes to HH:MM:SS
+                    hours, minutes = divmod(remaining_minutes, 60)
+                    seconds = 0
+                    remaining_time_hms = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+                    # Log and send the progress and remaining time
+                    self._logger.info(f"====++++====++++==== Intercepted M73: Progress={progress}%, Remaining Time={remaining_time_hms}")
+                    self.send_O9000_cmd(f"UPP|{progress}")  # Send progress
+                    self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
+                    
             # Catch Commands to search the below...
             layer_comment_match = re.match(r"M117 DASHBOARD_LAYER_INDICATOR (\d+)", cmd)
             if layer_comment_match:
@@ -323,6 +364,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.start_time = None
             self.elapsed_time = None
             self.layer_number = 0
+            self.send_m73 = False
 
         def get_elapsed_time(self):
             if self.start_time is not None:
@@ -336,7 +378,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.2"
+__plugin_version__ = "0.0.1.3"
       
 def __plugin_load__():
     global __plugin_implementation__
