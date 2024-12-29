@@ -78,7 +78,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     
                     if self._settings.get(["m73_progress"]):
                         self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
-                        self.send_m73 = True
+                        #self.send_m73 = True
                     
                 if not self.was_loaded: # Direct print from GUI?
                     self._logger.info(">>>+++ PrintedStarted but File Not Loaded, wait for metadata")
@@ -179,6 +179,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 self.print_time_known = True
             else:
                 self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Print time still unknown")
+                self.print_time_known = False
                 return
             print_time_left = 0
             current_layer = 0
@@ -223,11 +224,12 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             #only update if the print_time_left and progress changed
             if (self.prev_print_time_left != print_time_left):
                 
-                # Lets render the Progress based on what the user wants. Either Layer or Time progress.
+                # Lets render the Progress based on what the user wants. Either Layer or Time progress or M73 cmd.
                 if self._settings.get(["based_progress"]):
                     # Progress is based on the layer
                     progress = (int(self.layer_number) * 100 ) / int(self.total_layers)
-                elif self._settings.get(["m73_progress"]):
+                    
+                elif self._settings.get(["m73_progress"]): # Progress based on M73 command not sending anything since is updated by terminal interception.
                     self._logger.info(f"Progress based on M73 command") 
                     return                  
                 else:
@@ -287,7 +289,8 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             #self._logger.info(f"Intercepted G-code: {cmd}")
             
             # Intercept M73 commands to extract progress and time remaining
-            if cmd.startswith("M73") and self._settings.get(["m73_progress"]) and self.send_m73:
+            if cmd.startswith("M73") and self._settings.get(["m73_progress"]): #and self.send_m73:
+                
                 m73_match = re.match(r"M73 P(\d+)(?: R(\d+))?", cmd)
                 if m73_match:
                     progress = int(m73_match.group(1))  # Extract progress (P)
@@ -299,9 +302,13 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     remaining_time_hms = f"{hours:02}:{minutes:02}:{seconds:02}"
 
                     # Log and send the progress and remaining time
-                    self._logger.info(f"====++++====++++==== Intercepted M73: Progress={progress}%, Remaining Time={remaining_time_hms}")
-                    self.send_O9000_cmd(f"UPP|{progress}")  # Send progress
-                    self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
+                    if progress == 0:
+                        self._logger.info(f"====++++====++++==== Intercepted M73 P0: Setting the Print Time as={remaining_time_hms}")
+                        self.send_O9000_cmd(f"SPT|{remaining_time_hms}")
+                    elif progress > 0 and self.send_m73:
+                        self._logger.info(f"====++++====++++==== Intercepted M73: Progress={progress}%, Remaining Time={remaining_time_hms}")
+                        self.send_O9000_cmd(f"UPP|{progress}")  # Send progress
+                        self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
                     
             # Catch Commands to search the below...
             layer_comment_match = re.match(r"M117 DASHBOARD_LAYER_INDICATOR (\d+)", cmd)
@@ -321,7 +328,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             elif cmd.startswith("M117"):
                 
                 # We want to write the cancelled MSG
-                if cmd == "M117 Print is cancelled":
+                if cmd == "M117 Print is cancelled" or cmd == "M117 Print was cancelled":
                     return [cmd]
                 
                 
@@ -378,7 +385,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.3"
+__plugin_version__ = "0.0.1.4"
       
 def __plugin_load__():
     global __plugin_implementation__
