@@ -29,8 +29,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
         def get_settings_defaults(self):
             return dict(
                 enable_o9000_commands=False,  # Default value for the slider.
-                based_progress=False,
-                m73_progress=False
+                 progress_type="time_progress"  # Default option selected for radio buttons.
             )    
             
         def get_template_configs(self): # get the values
@@ -46,8 +45,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(f"Plugin Version: {self._plugin_version}")
             self._logger.info(f"Sliders values:")
             self._logger.info(f"Enable O9000 Commands: {self._settings.get(['enable_o9000_commands'])}")
-            self._logger.info(f"Progress based on Layer: {self._settings.get(['based_progress'])}")
-            self._logger.info(f"Progress based on M73 Command: {self._settings.get(['m73_progress'])}")
+            self._logger.info(f"Progress based on: {self._settings.get(['progress_type'])}")
 
            
         def on_event(self, event, payload):
@@ -76,7 +74,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     time.sleep(.5)
                     self.get_print_info(payload)
                     
-                    if self._settings.get(["m73_progress"]):
+                    if self._settings.get(["progress_type"]) == "m73_progress":
                         self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
                         #self.send_m73 = True
                     
@@ -100,7 +98,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     self.counter += 1
                     if self.counter > 3:
                         self._logger.info(">>>!!!! Printing without all the Data, our safe counter reached >3")
-                        if self._settings.get(["m73_progress"]):
+                        if self._settings.get(["progress_type"]) == "m73_progress":
                             self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
                             self.send_m73 = True
                         
@@ -225,11 +223,11 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             if (self.prev_print_time_left != print_time_left):
                 
                 # Lets render the Progress based on what the user wants. Either Layer or Time progress or M73 cmd.
-                if self._settings.get(["based_progress"]):
+                if self._settings.get(["progress_type"]) == "layer_progress":
                     # Progress is based on the layer
                     progress = (int(self.layer_number) * 100 ) / int(self.total_layers)
                     
-                elif self._settings.get(["m73_progress"]): # Progress based on M73 command not sending anything since is updated by terminal interception.
+                elif self._settings.get(["progress_type"]) == "m73_progress": # Progress based on M73 command not sending anything since is updated by terminal interception.
                     self._logger.info(f"Progress based on M73 command") 
                     return                  
                 else:
@@ -289,7 +287,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             #self._logger.info(f"Intercepted G-code: {cmd}")
             
             # Intercept M73 commands to extract progress and time remaining
-            if cmd.startswith("M73") and self._settings.get(["m73_progress"]): #and self.send_m73:
+            if cmd.startswith("M73") and self._settings.get(["progress_type"]) == "m73_progress": #and self.send_m73:
                 
                 m73_match = re.match(r"M73 P(\d+)(?: R(\d+))?", cmd)
                 if m73_match:
@@ -385,7 +383,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.4"
+__plugin_version__ = "0.0.1.5"
       
 def __plugin_load__():
     global __plugin_implementation__
