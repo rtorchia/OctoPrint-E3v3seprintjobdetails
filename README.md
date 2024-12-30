@@ -128,6 +128,10 @@ G1 X{{ pause_position.x }} Y{{ pause_position.y }} Z{{ pause_position.z }} F4500
 ```
 
 
+## If using Firmware >= [V1.0.9.7_4.b](https://github.com/navaismo/Ender-3V3-SE/releases/tag/V1.0.9.7_4.b) set the following in GCODE script section:
+
+![Gcode Scripts](https://i.imgur.com/TDb9ENm.png)
+
 ## Issues?
 If you have issues open an Issue or a discussion. Sending the following information:
 
