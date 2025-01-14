@@ -11,7 +11,6 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                                       ):
 
         def __init__(self): # init global vars
-            self.total_layers = 0
             self.was_loaded = False
             self.print_time_known = False
             self.total_layers_known = False
@@ -24,6 +23,15 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.elapsed_time = None
             self.layer_number = 0
             self.send_m73 = False
+            self.file_name = None
+            self.file_path = None
+            self.print_time = None
+            self.print_time_left = None
+            self.current_layer = None
+            self.progress = None
+            self.print_time = None
+            self.total_layers = 0
+           
             
             
         def get_settings_defaults(self):
@@ -97,56 +105,22 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 if self._printer.is_printing() and not self.printing_job:
                     self.counter += 1
                     if self.counter > 3:
-                        self._logger.info(">>>!!!! Printing without all the Data, our safe counter reached >3")
+                        self._logger.info(">>>!!!! Printing without all the Data? our safe counter reached >3 Double check info")
+                        
+                        # M73 Based Information        
                         if self._settings.get(["progress_type"]) == "m73_progress":
                             self._logger.info(f">>>+++ PrintStarted with M73 command enabled") 
                             self.send_m73 = True
                         
-                        #Doing the best to get the filepath at runtime
-                        current_job = self._printer.get_current_job()
-                        file_path = None
-                        layers = 0
-                        fn = None
-                        # We have a file so lets get the info
-                        if current_job and "file" in current_job:
-                            fn = current_job["file"]["name"]
-                            file_path = self._file_manager.path_on_disk("local", fn)
-                            self._logger.info(f"got a path: {file_path}")
-                            
-                        else:
-                            self._logger.info("Really not found a File?.")
-                
-                        #if we have a file then search for total layers... we can move this inside the above IF right? *shrugs* 
-                        if file_path != None:
-                            layers = self.find_total_layers(file_path)
-                            self._logger.info(f"Layers found: {layers}")
-                            self.total_layers = layers
-                        else:
-                            layers = 666 #The devil took our layers and helped us to not divide by 0 if you see the devil mark something wrong happened   
-                            self._logger.info(f"The devil took our layers and helped us to not divide by 0 if you see the devil mark something wrong happened: {layers}")
-                            self.total_layers = 666
-                            
-                        self.printing_job = True # we are printing without data :S, lets change that
-                        self.print_time_known = True # we are updating already  & we dont want to go for the info it will fail anyway
-                        self._logger.info(f"File selected: {fn}")
-                        self._logger.info(f"Total Layers: {self.total_layers}") 
-                        self._logger.info(f"Current Layer: {0}")
-                        self._logger.info(f"Progress: {0}")
+                        self.all_attributes_set(payload)
+                       
                         
-                        # Send the print Info to render the screen, a little bit late but hey I'm not perfect.
-                        self.send_O9000_cmd(f"SFN|{fn}")
-                        time.sleep(.2)
-                        self.send_O9000_cmd(f"STL|{self.total_layers}") # Bless our layers lord we are blind at this point and in your hands we are... godspeed!
-                        time.sleep(.2)
-                        self.send_O9000_cmd(f"SCL|       1") # should be 1 since the print just started now 
-                        time.sleep(.2)
-                        self.send_O9000_cmd(f"SC|") # Render the screen
-
+                
+                if self.printing_job: # have a flag from the flow of Load -> Print -> Read -> Start so now we can Update or forced above. 
+                    self.update_print_info(payload)        
 
                     
-                if self.printing_job: # have a flag from the flow of Load -> Print -> Read -> Start so now we can Update or forced above. 
-                    self.update_print_info(payload)
-
+                
 
             if event == "PrintDone":  # When Done change the screen and show the values
                 e_time = self.get_elapsed_time()
@@ -158,94 +132,101 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
         def get_print_info(self, payload):  # Get the print info
-            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Getting Print Details Info 1st time.")
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Getting Print Details Info with counter value {self.counter}.")
             time.sleep(0.9)
-            file_path = self._file_manager.path_on_disk("local", payload.get("path"))
-            self._logger.info(f"File selected: {file_path}")
+            
+            self.file_path = self._file_manager.path_on_disk("local", payload.get("path"))
+            self._logger.info(f"File selected: {self.file_path}")
+            
             if (not self.total_layers_known):
-                self.total_layers = self.find_total_layers(file_path)
+                self.total_layers = self.find_total_layers(self.file_path)
                 self.total_layers_known = True
 
             if self.total_layers:
                 self._logger.info(f"Total layers found: {self.total_layers}")
             else:
-                self._logger.info("Total layers not found in the file.")
-
-            file_name = self._printer.get_current_data().get("job", {}).get("file", {}).get("name", "DefaultName")
-            print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
-            if (print_time != None):
+                self._logger.info("Total layers not found in the file setting a random Value.")
+                self.total_layers = 666
+           
+                
+            self.file_name = self._printer.get_current_data().get("job", {}).get("file", {}).get("name", "DefaultName")
+            self.print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
+            
+            if (self.print_time != None):
                 self.print_time_known = True
             else:
                 self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Print time still unknown")
                 self.print_time_known = False
                 return
-            print_time_left = 0
-            current_layer = 0
-            progress = 0
+            
+            self.print_time_left = 0
+            self.current_layer = 0
+            self.progress = 0
 
-            self._logger.info(f"File selected: {file_name}")
-            self._logger.info(f"Print Time: {print_time}")
-            self._logger.info(f"Print Time Left: {print_time_left}")
-            self._logger.info(f"current layer: {current_layer}")
-            self._logger.info(f"progress: {progress}")
+            self._logger.info(f"File selected: {self.file_name}")
+            self._logger.info(f"Print Time: {self.print_time}")
+            self._logger.info(f"Print Time Left: {self.print_time_left}")
+            self._logger.info(f"current layer: {self.current_layer}")
+            self._logger.info(f"progress: {self.progress}")
 
-            self._logger.info(f"Print Time: {self.seconds_to_hms(print_time)}")
-            self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
+            self._logger.info(f"Print Time: {self.seconds_to_hms(self.print_time)}")
+            self._logger.info(f"Print Time Left: {self.seconds_to_hms(self.print_time_left)}")
             
             # Send the print Info using custom O Command O9000 to the printer
-            self.send_O9000_cmd(f"SFN|{file_name}")
+            self.send_O9000_cmd(f"SFN|{self.file_name}")
             self.send_O9000_cmd(f"STL|{self.total_layers}")
             self.send_O9000_cmd(f"SCL|       0")
-            self.send_O9000_cmd(f"SPT|{self.seconds_to_hms(print_time)}")
-            self.send_O9000_cmd(f"SET|{self.seconds_to_hms(print_time)}")
-            self.send_O9000_cmd(f"SPP|{progress}")
+            self.send_O9000_cmd(f"SPT|{self.seconds_to_hms(self.print_time)}")
+            self.send_O9000_cmd(f"SET|{self.seconds_to_hms(self.print_time)}")
+            self.send_O9000_cmd(f"SPP|{self.progress}")
             self.send_O9000_cmd(f"SC|")
+
 
         def update_print_info(self, payload):  # Get info to Update
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Update Print Details Info")
-            print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
-            if (not self.print_time_known and (print_time != None)):
+            self.print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
+            if (not self.print_time_known and (self.print_time != None)):
                 # we know the print time now, so update it on the screen
                 self.get_print_info(payload)
-            elif (print_time == None):
+            elif (self.print_time == None):
                 return
 
-            print_time_left = self._printer.get_current_data().get("progress", {}).get("printTimeLeft", "00:00:00")
+            self.print_time_left = self._printer.get_current_data().get("progress", {}).get("printTimeLeft", "00:00:00")
             #current_layer = self.layer_number
 
-            if print_time_left is None or print_time_left == 0:
-                print_time_left = print_time
+            if self.print_time_left is None or self.print_time_left == 0:
+                self.print_time_left = self.print_time
 
             #if current_layer is None or current_layer == 0:
             #    current_layer = 0
 
             #only update if the print_time_left and progress changed
-            if (self.prev_print_time_left != print_time_left):
+            if (self.prev_print_time_left != self.print_time_left):
                 
                 # Lets render the Progress based on what the user wants. Either Layer or Time progress or M73 cmd.
                 if self._settings.get(["progress_type"]) == "layer_progress":
                     # Progress is based on the layer
-                    progress = (int(self.layer_number) * 100 ) / int(self.total_layers)
+                    self.progress = (int(self.layer_number) * 100 ) / int(self.total_layers)
                     
                 elif self._settings.get(["progress_type"]) == "m73_progress": # Progress based on M73 command not sending anything since is updated by terminal interception.
                     self._logger.info(f"Progress based on M73 command") 
                     return                  
                 else:
                     # Progress is kinda shitty when based on time, but its what it is
-                    progress = (((print_time - print_time_left) / (print_time)) * 100)
+                    self.progress = (((self.print_time - self.print_time_left) / (self.print_time)) * 100)
     
     
-                self._logger.info(f"Print Time: {print_time}")
-                self._logger.info(f"Print Time: {self.seconds_to_hms(print_time)}")
-                self._logger.info(f"Print Time Left: {print_time_left}")
-                self._logger.info(f"Print Time Left: {self.seconds_to_hms(print_time_left)}")
+                self._logger.info(f"Print Time: {self.print_time}")
+                self._logger.info(f"Print Time: {self.seconds_to_hms(self.print_time)}")
+                self._logger.info(f"Print Time Left: {self.print_time_left}")
+                self._logger.info(f"Print Time Left: {self.seconds_to_hms(self.print_time_left)}")
                 #self._logger.info(f"current layer: {current_layer}")
-                self._logger.info(f"progress: {progress}")
+                self._logger.info(f"progress: {self.progress}")
                 
                 # Send the print Info using custom O Command O9000 to the printer
-                self.prev_print_time_left = print_time_left
-                self.send_O9000_cmd(f"UET|{self.seconds_to_hms(print_time_left)}")
-                self.send_O9000_cmd(f"UPP|{progress}")
+                self.prev_print_time_left = self.print_time_left
+                self.send_O9000_cmd(f"UET|{self.seconds_to_hms(self.print_time_left)}")
+                self.send_O9000_cmd(f"UPP|{self.progress}")
 
 
         def find_total_layers(self, file_path):
@@ -255,31 +236,57 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     for line in gcode_file:
                         if "; total layer number:" in line:
                             # Extract total layers if Orca Generated
-                            total_layers = line.strip().split(":")[-1].strip()
-                            return total_layers
+                            total_layers_found = line.strip().split(":")[-1].strip()
+                            return total_layers_found
                         elif ";LAYER_COUNT:" in line:
                             # Extract total layers if Cura Generated
-                            total_layers = line.strip().split(":")[-1].strip()
-                            return total_layers
+                            total_layers_found = line.strip().split(":")[-1].strip()
+                            return total_layers_found
             except Exception as e:
                 self._logger.error(f"Error reading file {file_path}: {e}")
                 return None
             return None
+        
 
-        # Classic function to change Seconds in to hh:mm:ss
-        def seconds_to_hms(self, seconds_float):
-            if not isinstance(seconds_float, (int, float)):
-                seconds_float = 0
-            seconds = int(round(seconds_float))
-            hours = seconds // 3600
-            minutes = (seconds % 3600) // 60
-            seconds = seconds % 60
-            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        # Check if we have all Values        
+        def all_attributes_set(self, payload):
+           
+            self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Checking if all attributes are set.")
+            # Dictionary with attribute names and their values
+            attributes = {
+                "file_name": self.file_name,
+                "file_path": self.file_path,
+                "print_time": self.print_time,
+                "print_time_left": self.print_time_left,
+                "current_layer": self.current_layer,
+                "progress": self.progress,
+                "total_layers": self.total_layers,
+            }
 
-        def send_O9000_cmd(self, value):  # Send the comand to the printer
-            # self._logger.info(f"Trying to send command: O9000 {value}")
-            if self._settings.get(["enable_o9000_commands"]):
-                self._printer.commands(f"O9000 {value}")
+            # Identify attributes that are None
+            none_attributes = [name for name, value in attributes.items() if value is None]
+            
+            # We are printing so we need to enable this 
+            self.printing_job = True
+            # If there are no attributes with value None, returns True
+            if not none_attributes:
+                if self.current_layer == 0:
+                    self.current_layer = 1
+                
+                self._logger.info("++++++ All attributes are set.")
+                self._logger.info(f"File selected: {self.file_name}")
+                self._logger.info(f"progress: {self.progress}")
+                self._logger.info(f"current layer: {self.current_layer}")
+                self.send_O9000_cmd(f"UCL|{str(self.layer_number).rjust(7, ' ')}")
+                self._logger.info(f"Total layers found: {self.total_layers}")
+                self._logger.info(f"Print Time: {self.seconds_to_hms(self.print_time)}")
+                self._logger.info(f"Print Time Left: {self.seconds_to_hms(self.print_time_left)}")
+                return
+            else :
+                self._logger.warning(f"Attributes not set: {none_attributes}")
+                self.get_print_info(payload)  # Try to get the info again
+
+            
 
 
         #catch and parse commands
@@ -291,7 +298,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 
                 m73_match = re.match(r"M73 P(\d+)(?: R(\d+))?", cmd)
                 if m73_match:
-                    progress = int(m73_match.group(1))  # Extract progress (P)
+                    self.progress = int(m73_match.group(1))  # Extract progress (P)
                     remaining_minutes = int(m73_match.group(2)) if m73_match.group(2) else 0  # Extract remaining minutes (R), default to 0 if missing
 
                     # Convert remaining minutes to HH:MM:SS
@@ -300,12 +307,12 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     remaining_time_hms = f"{hours:02}:{minutes:02}:{seconds:02}"
 
                     # Log and send the progress and remaining time
-                    if progress == 0:
+                    if self.progress == 0:
                         self._logger.info(f"====++++====++++==== Intercepted M73 P0: Setting the Print Time as={remaining_time_hms}")
                         self.send_O9000_cmd(f"SPT|{remaining_time_hms}")
-                    elif progress > 0 and self.send_m73:
-                        self._logger.info(f"====++++====++++==== Intercepted M73: Progress={progress}%, Remaining Time={remaining_time_hms}")
-                        self.send_O9000_cmd(f"UPP|{progress}")  # Send progress
+                    elif self.progress > 0 and self.send_m73:
+                        self._logger.info(f"====++++====++++==== Intercepted M73: Progress={self.progress}%, Remaining Time={remaining_time_hms}")
+                        self.send_O9000_cmd(f"UPP|{self.progress}")  # Send progress
                         self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
                     
             # Catch Commands to search the below...
@@ -336,8 +343,62 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
     
             # Return the cmd
             return [cmd]
+   
+   
+   
+        # Send the O9000 comand to the printer
+        def send_O9000_cmd(self, value):  
+            # self._logger.info(f"Trying to send command: O9000 {value}")
+            if self._settings.get(["enable_o9000_commands"]):
+                self._printer.commands(f"O9000 {value}")
+                time.sleep(0.2) # wait for the command to be sent
+    
+   
+        # Classic function to change Seconds in to hh:mm:ss
+        def seconds_to_hms(self, seconds_float):
+            if not isinstance(seconds_float, (int, float)):
+                seconds_float = 0
+            seconds = int(round(seconds_float))
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            seconds = seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-
+      
+        def get_elapsed_time(self):
+            if self.start_time is not None:
+                self.elapsed_time = time.time() - self.start_time  # Get the elapsed time in seconds
+                human_time = self.seconds_to_hms(self.elapsed_time)
+                self._logger.info(f"Print ended at {time.ctime()} with elapsed time: {human_time}")
+                self.start_time = None  # reset
+                return human_time
+            else:
+                self._logger.warning("Print ended but no start time was recorded.")  
+                return "00:00:00"  
+        
+        
+        def cleanup(self):
+            self.total_layers = 0
+            self.was_loaded = False
+            self.print_time_known = False
+            self.total_layers_known = False
+            self.prev_print_time_left = None
+            self.await_start = False
+            self.await_metadata = False
+            self.printing_job = False
+            self.counter = 0
+            self.start_time = None
+            self.elapsed_time = None
+            self.layer_number = 0
+            self.send_m73 = False
+            self.file_name = None
+            self.file_path = None
+            self.print_time = None
+            self.print_time_left = None
+            self.current_layer = None
+            self.progress = None
+            
+            
         def get_update_information(self):
             # Define the configuration for your plugin to use with the Software Update
             # Plugin here. See https://docs.octoprint.org/en/master/bundledplugins/softwareupdate.html
@@ -354,36 +415,11 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                     # update method: pip
                     "pip": "https://github.com/navaismo/OctoPrint-E3v3seprintjobdetails/archive/{target_version}.zip",
                 }
-            }
-        
-        def cleanup(self):
-            self.total_layers = 0
-            self.was_loaded = False
-            self.print_time_known = False
-            self.total_layers_known = False
-            self.prev_print_time_left = None
-            self.await_start = False
-            self.await_metadata = False
-            self.printing_job = False
-            self.counter = 0
-            self.start_time = None
-            self.elapsed_time = None
-            self.layer_number = 0
-            self.send_m73 = False
-
-        def get_elapsed_time(self):
-            if self.start_time is not None:
-                self.elapsed_time = time.time() - self.start_time  # Get the elapsed time in seconds
-                human_time = self.seconds_to_hms(self.elapsed_time)
-                self._logger.info(f"Print ended at {time.ctime()} with elapsed time: {human_time}")
-                self.start_time = None  # reset
-                return human_time
-            else:
-                self._logger.warning("Print ended but no start time was recorded.")    
+            }    
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.5"
+__plugin_version__ = "0.0.1.6"
       
 def __plugin_load__():
     global __plugin_implementation__
