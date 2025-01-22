@@ -105,7 +105,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 if self._printer.is_printing() and not self.printing_job:
                     self.counter += 1
                     if self.counter > 3:
-                        self._logger.info(">>>!!!! Printing without all the Data? our safe counter reached >3 Double check info")
+                        self._logger.warning(">>>!!!! Printing without all the Data? our safe counter reached >3 Double check info")
                         
                         # M73 Based Information        
                         if self._settings.get(["progress_type"]) == "m73_progress":
@@ -135,10 +135,16 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Getting Print Details Info with counter value {self.counter}.")
             time.sleep(0.9)
             
-            self.file_path = self._file_manager.path_on_disk("local", payload.get("path"))
-            self._logger.info(f"File selected: {self.file_path}")
+            # Gather file_path from payload or printer's current job data
+            self.file_path = payload.get("path") or self._printer.get_current_data().get("job", {}).get("file", {}).get("path")
+            if self.file_path:
+                self.file_path = self._file_manager.path_on_disk("local", self.file_path)
+                self._logger.info(f"File selected: {self.file_path}")
+            else:
+                self._logger.warning("File path not found in payload or current job data.")
+                return
             
-            if (not self.total_layers_known):
+            if not self.total_layers_known:
                 self.total_layers = self.find_total_layers(self.file_path)
                 self.total_layers_known = True
 
@@ -147,12 +153,14 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             else:
                 self._logger.info("Total layers not found in the file setting a random Value.")
                 self.total_layers = 666
-           
-                
-            self.file_name = self._printer.get_current_data().get("job", {}).get("file", {}).get("name", "DefaultName")
+
+            # Gather file_name from payload or printer's current job data
+            self.file_name = payload.get("name") or self._printer.get_current_data().get("job", {}).get("file", {}).get("name", "DefaultName")
+            
+            # Gather print_time from printer's current job data
             self.print_time = self._printer.get_current_data().get("job", {}).get("estimatedPrintTime", "00:00:00")
             
-            if (self.print_time != None):
+            if self.print_time is not None:
                 self.print_time_known = True
             else:
                 self._logger.info(f">>>>>> E3v3seprintjobdetailsPlugin Print time still unknown")
@@ -284,6 +292,8 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 return
             else :
                 self._logger.warning(f"Attributes not set: {none_attributes}")
+                self._logger.warning(f"Payload: {payload}")
+                self.current_layer = 1 # we are printing and layer must be 1
                 self.get_print_info(payload)  # Try to get the info again
 
             
@@ -419,7 +429,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.6"
+__plugin_version__ = "0.0.1.7"
       
 def __plugin_load__():
     global __plugin_implementation__
