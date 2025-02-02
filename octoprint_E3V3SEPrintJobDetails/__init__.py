@@ -245,8 +245,9 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                 
                 # Send the print Info using custom O Command O9000 to the printer
                 self.prev_print_time_left = self.print_time_left
-                self.send_O9000_cmd(f"UET|{self.seconds_to_hms(self.print_time_left)}")
-                self.send_O9000_cmd(f"UPP|{self.progress}")
+                # self.send_O9000_cmd(f"UET|{self.seconds_to_hms(self.print_time_left)}")
+                # self.send_O9000_cmd(f"UPP|{self.progress}")
+                self.send_O9000_cmd(f"UPT|{self.progress}|{self.seconds_to_hms(self.print_time_left)}") # Send Progress and Time
 
 
         def find_total_layers(self, file_path):
@@ -341,8 +342,10 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
                         self.send_O9000_cmd(f"SPT|{remaining_time_hms}")
                     elif self.progress > 0 and self.send_m73:
                         self._logger.info(f"====++++====++++==== Intercepted M73: Progress={self.progress}%, Remaining Time={remaining_time_hms}")
-                        self.send_O9000_cmd(f"UPP|{self.progress}")  # Send progress
-                        self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
+                        # self.send_O9000_cmd(f"UPP|{self.progress}")  # Send progress
+                        # self.send_O9000_cmd(f"UET|{remaining_time_hms}")  # Send remaining time
+                        self.send_O9000_cmd(f"UPT|{self.progress}|{remaining_time_hms}") # Send Progress and Time
+                                                
                     
             # Catch Commands to search the below...
             layer_comment_match = re.match(r"M117 DASHBOARD_LAYER_INDICATOR (\d+)", cmd)
