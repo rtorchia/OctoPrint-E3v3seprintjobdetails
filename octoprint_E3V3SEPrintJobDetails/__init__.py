@@ -30,19 +30,19 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
             self.current_layer = None
             self.progress = None
             self.total_layers = 0
-           
-            
-            
-        def get_settings_defaults(self):
+
+
+
+def get_settings_defaults(self):
             return dict(
                 enable_o9000_commands=False,  # Default value for the slider.
                  progress_type="time_progress"  # Default option selected for radio buttons.
-            )    
+            ) 
             
         def get_template_configs(self): # get the values
             return [
                 dict(type="settings", template="settings.e3v3seprintjobdetails_plugin_settings.jinja2", name="E3V3SE Print Job Details", custom_bindings=False)
-            ]    
+            ]
 
         def on_after_startup(self):
             self._logger.info(">>>>>> E3v3seprintjobdetailsPlugin Loaded <<<<<<")
@@ -451,7 +451,7 @@ class E3v3seprintjobdetailsPlugin(octoprint.plugin.StartupPlugin,
 
 
 __plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
-__plugin_version__ = "0.0.1.8"
+__plugin_version__ = "0.0.1.9BETA"
       
 def __plugin_load__():
     global __plugin_implementation__
